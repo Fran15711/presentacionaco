@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Viewer</title>
     <style>
+        /* Estilos comunes */
         #pdf-container {
             width: 100%;
             overflow-y: auto;
@@ -13,6 +14,28 @@
         canvas {
             display: block;
             margin: 10px 0;
+            width: 100%;  /* Asegura que el canvas ocupe el 100% del contenedor */
+        }
+
+        /* Estilo para pantallas grandes */
+        @media (min-width: 1001px) {
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+
+        /* Estilo para pantallas con un ancho máximo de 1000px (móviles y pantallas pequeñas) */
+        @media (max-width: 1000px) {
+            #pdf-container {
+                max-width: 1000px;
+                margin: 0 auto; /* Centra el contenedor */
+            }
+            canvas {
+                max-width: 1000px;
+                height: auto;
+                margin: 0 auto; /* Centra el canvas */
+            }
         }
     </style>
 </head>
@@ -27,24 +50,40 @@
         pdfjsLib.getDocument(url).promise.then((pdf) => {
             const totalPages = pdf.numPages;
 
-            for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-                pdf.getPage(pageNumber).then((page) => {
-                    const scale = window.innerWidth / page.getViewport({ scale: 1 }).width; // Scale to fit 100% width
-                    const viewport = page.getViewport({ scale });
+            const renderPage = (page, scale) => {
+                const viewport = page.getViewport({ scale });
 
-                    const canvas = document.createElement('canvas');
-                    container.appendChild(canvas);
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
 
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
 
-                    page.render({
-                        canvasContext: context,
-                        viewport: viewport
-                    });
+                page.render({
+                    canvasContext: context,
+                    viewport: viewport
                 });
-            }
+            };
+
+            const renderPDF = () => {
+                // Escalar según el ancho de la ventana
+                const maxWidth = 1000; // Límite de 1000px para móviles
+                const scaleFactor = Math.min(window.innerWidth, maxWidth) / maxWidth; // Calcula la escala para pantallas pequeñas
+
+                for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+                    pdf.getPage(pageNumber).then((page) => {
+                        const scale = Math.min(scaleFactor, 1); // No dejar que la escala se haga mayor que 1
+                        renderPage(page, scale);
+                    });
+                }
+            };
+
+            // Volver a renderizar el PDF cuando la ventana cambie de tamaño
+            window.addEventListener('resize', renderPDF);
+
+            // Inicialmente renderizar el PDF
+            renderPDF();
         });
     </script>
 </body>
