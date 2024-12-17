@@ -29,57 +29,62 @@
         const url = 'https://raw.githubusercontent.com/Fran15711/presentacionaco/main/ACO_Present_Distribuidores.pdf';
         const container = document.getElementById('pdf-container');
 
-        pdfjsLib.getDocument(url).promise.then((pdf) => {
-            const totalPages = pdf.numPages;
+        let pdfDoc = null; // Guardar referencia al documento PDF
+        let debounceTimeout = null; // Temporizador para el evento resize
 
-            const renderPage = (page, scale) => {
-                const viewport = page.getViewport({ scale });
+        const renderPage = (page, scale) => {
+            const viewport = page.getViewport({ scale });
 
-                // Crear el canvas para cada página
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
 
-                // Ajustar el tamaño del canvas según la densidad de píxeles
-                canvas.width = viewport.width * window.devicePixelRatio;
-                canvas.height = viewport.height * window.devicePixelRatio;
-                canvas.style.width = `${viewport.width}px`;
-                canvas.style.height = `${viewport.height}px`;
+            // Ajustar el tamaño del canvas para alta resolución
+            canvas.width = viewport.width * window.devicePixelRatio;
+            canvas.height = viewport.height * window.devicePixelRatio;
+            canvas.style.width = `${viewport.width}px`;
+            canvas.style.height = `${viewport.height}px`;
 
-                // Escalar el contexto para alta resolución
-                context.scale(window.devicePixelRatio, window.devicePixelRatio);
+            context.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-                // Renderizar la página en el canvas
-                page.render({
-                    canvasContext: context,
-                    viewport: viewport
-                });
-
+            // Renderizar la página en el canvas
+            return page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise.then(() => {
                 container.appendChild(canvas);
-            };
+            });
+        };
 
-            const renderPDF = () => {
-                // Limpiar el contenedor
-                container.innerHTML = '';
+        const renderPDF = async () => {
+            // Limpiar el contenedor
+            container.innerHTML = '';
 
-                // Calcular la escala basada en el ancho de la ventana
-                const screenWidth = container.offsetWidth;
-                const baseWidth = 1000; // Ajustar según el diseño original
-                const scale = screenWidth / baseWidth;
+            if (!pdfDoc) return;
 
-                // Renderizar todas las páginas
-                for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
-                    pdf.getPage(pageNumber).then((page) => {
-                        renderPage(page, scale);
-                    });
-                }
-            };
+            const screenWidth = container.offsetWidth;
+            const baseWidth = 1000; // Ajustar según el diseño original
+            const scale = screenWidth / baseWidth;
 
-            // Volver a renderizar el PDF cuando la ventana cambie de tamaño
-            window.addEventListener('resize', renderPDF);
+            // Renderizar todas las páginas
+            for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber++) {
+                const page = await pdfDoc.getPage(pageNumber);
+                await renderPage(page, scale);
+            }
+        };
 
-            // Renderizar inicialmente el PDF
+        const handleResize = () => {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(renderPDF, 300); // Esperar 300 ms antes de renderizar
+        };
+
+        pdfjsLib.getDocument(url).promise.then((pdf) => {
+            pdfDoc = pdf;
             renderPDF();
         });
+
+        // Volver a renderizar al cambiar el tamaño de la ventana
+        window.addEventListener('resize', handleResize);
     </script>
 </body>
 </html>
+
