@@ -7,17 +7,18 @@
     <style>
         #pdf-container {
             width: 100%;
-            height: 100%;
-            overflow-y: auto;
+            height: 100vh; /* Usar toda la altura de la ventana */
+            overflow-y: scroll; /* Activar desplazamiento */
             padding: 0;
             margin: 0;
+            background-color: #f0f0f0; /* Color de fondo para distinguir el PDF */
         }
 
         canvas {
             display: block;
-            margin: 0 auto;
-            width: 100%; /* Escala visualmente el canvas */
-            height: auto; /* Mantiene la relación de aspecto */
+            margin: 20px auto; /* Separación entre páginas */
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
@@ -28,13 +29,19 @@
     <script>
         const url = 'https://raw.githubusercontent.com/Fran15711/presentacionaco/main/ACO_Present_Distribuidores.pdf';
         const container = document.getElementById('pdf-container');
+        const pageCache = {}; // Cache para las páginas renderizadas
+        const visibleThreshold = 300; // Distancia en píxeles para cargar anticipadamente
 
-        let pdfDoc = null; // Guardar referencia al documento PDF
-        let debounceTimeout = null; // Temporizador para el evento resize
+        let pdfDoc = null;
 
-        const renderPage = (page, scale) => {
-            const viewport = page.getViewport({ scale });
+        // Renderiza una página específica
+        const renderPage = async (pageNumber) => {
+            if (pageCache[pageNumber]) return; // Si ya está en cache, no renderizar de nuevo
 
+            const page = await pdfDoc.getPage(pageNumber);
+            const viewport = page.getViewport({ scale: 1 });
+
+            // Crear el canvas
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
 
@@ -46,44 +53,60 @@
 
             context.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-            // Renderizar la página en el canvas
-            return page.render({
-                canvasContext: context,
-                viewport: viewport
-            }).promise.then(() => {
-                container.appendChild(canvas);
-            });
+            // Renderizar la página
+            await page.render({ canvasContext: context, viewport }).promise;
+
+            // Guardar el canvas en el contenedor y la cache
+            container.appendChild(canvas);
+            pageCache[pageNumber] = canvas;
         };
 
-        const renderPDF = async () => {
-            // Limpiar el contenedor
-            container.innerHTML = '';
+        // Verifica qué páginas están visibles
+        const getVisiblePages = () => {
+            const containerTop = container.scrollTop;
+            const containerBottom = containerTop + container.offsetHeight;
 
-            if (!pdfDoc) return;
+            const visiblePages = [];
+            let currentHeight = 0;
 
-            const screenWidth = container.offsetWidth;
-            const baseWidth = 1000; // Ajustar según el diseño original
-            const scale = screenWidth / baseWidth;
-
-            // Renderizar todas las páginas
             for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber++) {
-                const page = await pdfDoc.getPage(pageNumber);
-                await renderPage(page, scale);
+                const pageHeight = pageCache[pageNumber]?.clientHeight || 1000; // Altura aproximada si no está renderizado
+
+                if (
+                    (currentHeight + pageHeight >= containerTop - visibleThreshold) &&
+                    (currentHeight <= containerBottom + visibleThreshold)
+                ) {
+                    visiblePages.push(pageNumber);
+                }
+
+                currentHeight += pageHeight + 20; // Separación entre páginas
+            }
+
+            return visiblePages;
+        };
+
+        // Renderiza las páginas visibles
+        const renderVisiblePages = async () => {
+            const visiblePages = getVisiblePages();
+            for (const pageNumber of visiblePages) {
+                await renderPage(pageNumber);
             }
         };
 
-        const handleResize = () => {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(renderPDF, 300); // Esperar 300 ms antes de renderizar
-        };
-
-        pdfjsLib.getDocument(url).promise.then((pdf) => {
+        pdfjsLib.getDocument(url).promise.then(async (pdf) => {
             pdfDoc = pdf;
-            renderPDF();
-        });
 
-        // Volver a renderizar al cambiar el tamaño de la ventana
-        window.addEventListener('resize', handleResize);
+            // Renderizar la primera página para dar feedback inmediato
+            await renderPage(1);
+
+            // Configurar evento de scroll para renderizado bajo demanda
+            container.addEventListener('scroll', () => {
+                renderVisiblePages();
+            });
+
+            // Renderizar páginas visibles iniciales
+            renderVisiblePages();
+        });
     </script>
 </body>
 </html>
