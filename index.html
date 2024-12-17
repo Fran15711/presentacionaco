@@ -11,7 +11,8 @@
             overflow-y: scroll; /* Activar desplazamiento */
             padding: 0;
             margin: 0;
-            background-color: #f0f0f0; /* Color de fondo para distinguir el PDF */
+            background-color: #f0f0f0; /* Fondo para distinguir el PDF */
+            position: relative;
         }
 
         canvas {
@@ -33,6 +34,7 @@
         const visibleThreshold = 300; // Distancia en píxeles para cargar anticipadamente
 
         let pdfDoc = null;
+        let isRendering = false; // Bandera para evitar conflictos de renderizado
 
         // Renderiza una página específica
         const renderPage = async (pageNumber) => {
@@ -57,8 +59,8 @@
             await page.render({ canvasContext: context, viewport }).promise;
 
             // Guardar el canvas en el contenedor y la cache
-            container.appendChild(canvas);
             pageCache[pageNumber] = canvas;
+            container.appendChild(canvas);
         };
 
         // Verifica qué páginas están visibles
@@ -85,12 +87,39 @@
             return visiblePages;
         };
 
-        // Renderiza las páginas visibles
+        // Renderiza las páginas visibles de forma progresiva
         const renderVisiblePages = async () => {
+            if (isRendering) return; // Evitar renderizado simultáneo
+            isRendering = true;
+
             const visiblePages = getVisiblePages();
+
+            // Usar DocumentFragment para evitar interrupciones
+            const fragment = document.createDocumentFragment();
             for (const pageNumber of visiblePages) {
-                await renderPage(pageNumber);
+                if (!pageCache[pageNumber]) {
+                    const page = await pdfDoc.getPage(pageNumber);
+                    const viewport = page.getViewport({ scale: 1 });
+
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+
+                    canvas.width = viewport.width * window.devicePixelRatio;
+                    canvas.height = viewport.height * window.devicePixelRatio;
+                    canvas.style.width = `${viewport.width}px`;
+                    canvas.style.height = `${viewport.height}px`;
+
+                    context.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+                    await page.render({ canvasContext: context, viewport }).promise;
+
+                    fragment.appendChild(canvas);
+                    pageCache[pageNumber] = canvas;
+                }
             }
+
+            container.appendChild(fragment); // Agregar al contenedor en un solo paso
+            isRendering = false;
         };
 
         pdfjsLib.getDocument(url).promise.then(async (pdf) => {
@@ -101,7 +130,7 @@
 
             // Configurar evento de scroll para renderizado bajo demanda
             container.addEventListener('scroll', () => {
-                renderVisiblePages();
+                requestAnimationFrame(renderVisiblePages);
             });
 
             // Renderizar páginas visibles iniciales
@@ -110,4 +139,5 @@
     </script>
 </body>
 </html>
+
 
