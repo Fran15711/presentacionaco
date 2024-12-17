@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Viewer</title>
+    <title>Visor de PDF</title>
     <style>
         #pdf-container {
             width: 100%;
             height: 100vh; /* Usar toda la altura de la ventana */
             overflow-y: scroll; /* Activar desplazamiento */
-            padding: 0;
             margin: 0;
+            padding: 0;
             background-color: #f0f0f0; /* Fondo para distinguir el PDF */
             position: relative;
         }
@@ -119,16 +119,12 @@
                 requestAnimationFrame(renderVisiblePages);
             });
 
-            // Renderizar todas las páginas
-            for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber++) {
-                await renderPage(pageNumber, container.offsetWidth / 800);
-            }
-
-            // Renderizar páginas visibles iniciales
+            // Renderizar todas las páginas visibles cuando el documento esté listo
             renderVisiblePages();
         });
     </script>
 </body>
 </html>
+
 
 
