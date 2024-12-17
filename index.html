@@ -39,11 +39,10 @@
         let isRendering = false; // Bandera para evitar conflictos de renderizado
 
         // Renderiza una página específica
-        const renderPage = async (pageNumber) => {
+        const renderPage = async (pageNumber, scale) => {
             if (pageCache[pageNumber]) return; // Si ya está en cache, no renderizar de nuevo
 
             const page = await pdfDoc.getPage(pageNumber);
-            const scale = container.offsetWidth / page.getViewport({ scale: 1 }).width; // Escalado dinámico según el ancho de la pantalla
             const viewport = page.getViewport({ scale });
 
             // Crear el canvas
@@ -101,28 +100,11 @@
             const fragment = document.createDocumentFragment();
             for (const pageNumber of visiblePages) {
                 if (!pageCache[pageNumber]) {
-                    const page = await pdfDoc.getPage(pageNumber);
-                    const scale = container.offsetWidth / page.getViewport({ scale: 1 }).width; // Escalado dinámico según el ancho de la pantalla
-                    const viewport = page.getViewport({ scale });
-
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-
-                    canvas.width = viewport.width * window.devicePixelRatio;
-                    canvas.height = viewport.height * window.devicePixelRatio;
-                    canvas.style.width = `${viewport.width}px`;
-                    canvas.style.height = `${viewport.height}px`;
-
-                    context.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-                    await page.render({ canvasContext: context, viewport }).promise;
-
-                    fragment.appendChild(canvas);
-                    pageCache[pageNumber] = canvas;
+                    const scale = container.offsetWidth / 800; // Escalado dinámico según el ancho de la pantalla
+                    await renderPage(pageNumber, scale);
                 }
             }
 
-            container.appendChild(fragment); // Agregar al contenedor en un solo paso
             isRendering = false;
         };
 
@@ -130,12 +112,17 @@
             pdfDoc = pdf;
 
             // Renderizar la primera página para dar feedback inmediato
-            await renderPage(1);
+            await renderPage(1, 1);
 
             // Configurar evento de scroll para renderizado bajo demanda
             container.addEventListener('scroll', () => {
                 requestAnimationFrame(renderVisiblePages);
             });
+
+            // Renderizar todas las páginas
+            for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber++) {
+                await renderPage(pageNumber, container.offsetWidth / 800);
+            }
 
             // Renderizar páginas visibles iniciales
             renderVisiblePages();
@@ -143,4 +130,5 @@
     </script>
 </body>
 </html>
+
 
