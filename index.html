@@ -8,33 +8,43 @@
         /* Estilos comunes */
         #pdf-container {
             width: 100%;
+            height: 100%; /* Para que ocupe toda la pantalla */
             overflow-y: auto;
-            padding: 20px;
+            padding: 0;
+            margin: 0;
         }
+
         canvas {
             display: block;
-            margin: 10px 0;
+            margin: 0;
             width: 100%;  /* Asegura que el canvas ocupe el 100% del contenedor */
+            height: auto; /* Mantiene la relación de aspecto */
         }
 
-        /* Estilo para pantallas grandes */
+        /* Estilo para pantallas grandes (computadoras) */
         @media (min-width: 1001px) {
+            #pdf-container {
+                width: 100%; /* Asegura que el contenedor ocupe el 100% del ancho */
+                height: auto; /* Asegura que el contenedor ocupe el 100% de la altura de la ventana */
+            }
+
             canvas {
-                max-width: 100%;
-                height: auto;
+                width: 100%;  /* Hace que el canvas ocupe el 100% del ancho de la ventana */
+                height: 100%; /* Hace que el canvas ocupe el 100% de la altura de la ventana */
             }
         }
 
-        /* Estilo para pantallas con un ancho máximo de 1000px (móviles y pantallas pequeñas) */
+        /* Estilo para pantallas pequeñas (móviles y tabletas) */
         @media (max-width: 1000px) {
             #pdf-container {
-                max-width: 1000px;
+                width: 100%;
                 margin: 0 auto; /* Centra el contenedor */
             }
+
             canvas {
-                max-width: 1000px;
-                height: auto;
-                margin: 0 auto; /* Centra el canvas */
+                max-width: 100%;  /* Asegura que el canvas no exceda el tamaño del contenedor */
+                height: auto;     /* Mantiene la relación de aspecto */
+                margin: 0 auto;   /* Centra el canvas */
             }
         }
     </style>
@@ -68,12 +78,24 @@
 
             const renderPDF = () => {
                 // Escalar según el ancho de la ventana
-                const maxWidth = 1000; // Límite de 1000px para móviles
-                const scaleFactor = Math.min(window.innerWidth, maxWidth) / maxWidth; // Calcula la escala para pantallas pequeñas
+                const screenWidth = window.innerWidth;
+                const screenHeight = window.innerHeight;
 
+                let scale;
+
+                if (screenWidth > 1000) {
+                    // En pantallas grandes, el PDF ocupará el 100% de la pantalla
+                    const scaleX = screenWidth / 1000;
+                    const scaleY = screenHeight / 1000;
+                    scale = Math.min(scaleX, scaleY); // Elegimos la escala más pequeña para no distorsionar
+                } else {
+                    // En pantallas pequeñas, ajustamos la escala al ancho de la ventana
+                    scale = screenWidth / 1000;
+                }
+
+                // Renderizar el PDF con la escala calculada
                 for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
                     pdf.getPage(pageNumber).then((page) => {
-                        const scale = Math.min(scaleFactor, 1); // No dejar que la escala se haga mayor que 1
                         renderPage(page, scale);
                     });
                 }
